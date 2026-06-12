@@ -1,0 +1,68 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Subscription {
+  id         String   @id @default(uuid())
+  targetUrl  String
+  secret     String?
+  eventTypes String
+
+  createdAt  DateTime @default(now())
+  deliveries Delivery[]
+
+  @@map("subscriptions")
+}
+
+model Event {
+  id         String   @id @default(uuid())
+  type       String
+  payload    String
+  receivedAt DateTime @default(now())
+  deliveries Delivery[]
+
+  @@map("events")
+}
+
+model Delivery {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  eventId        String
+  status         String       @default("pending")
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(5)
+  nextRetryAt    DateTime     @default(now())
+  lastAttemptAt  DateTime?
+  lastStatusCode Int?
+  lastError      String?
+  createdAt      DateTime     @default(now())
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attemptLogs    AttemptLog[]
+
+  @@index([status, nextRetryAt])
+  @@index([subscriptionId])
+  @@index([eventId])
+  @@map("deliveries")
+}
+
+model AttemptLog {
+  id          String   @id @default(uuid())
+  deliveryId  String
+  attemptNum  Int
+  statusCode  Int?
+  error       String?
+  durationMs  Int
+  attemptedAt DateTime @default(now())
+
+  delivery    Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("attempt_logs")
+}
